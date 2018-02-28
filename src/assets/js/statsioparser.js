@@ -19,7 +19,7 @@ function updateQueryStringParameter(uri, key, value) {
 }
 
 function toggleCheckmark(checkmarkSpan, cookieKey) {
-    if($.cookies.get(cookieKey) === true) {
+    if ($.cookies.get(cookieKey) === true) {
         $.cookies.set(cookieKey, "false");
         checkmarkSpan.style.display = 'none';
     } else {
@@ -74,10 +74,10 @@ function statsTimeInfoTotal() {
     this.elapsed = 0;
 }
 
-function determineLang(strRow){
+function determineLang(strRow) {
     var lang = 1;
 
-    if (strRow.substring(0,7) === 'Table \'') { lang = 1; } // English
+    if (strRow.substring(0, 7) === 'Table \'') { lang = 1; } // English
     else if (strRow.substring(0, 7) === 'Tabla \'') { lang = 2; } // Spanish
     else if ($.trim(strRow.substring(0, 6)) === 'Tiempo') { lang = 2; } // Spanish
     else if ($.trim(strRow.substring(0, 7)) === 'Tiempos') { lang = 2; } // Spanish
@@ -85,16 +85,16 @@ function determineLang(strRow){
     return lang;
 }
 
-function determineLangFilename (langType) {
+function determineLangFilename(langType) {
     var filename;
-    switch(langType) {
+    switch (langType) {
         case 'en': // English
             filename = 'assets/data/languagetext-en.json'
             break;
         case 'es': // Spanish
             filename = 'assets/data/languagetext-es.json'
             break;
-        default :
+        default:
             filename = 'assets/data/languagetext-en.json'
             break;
     }
@@ -123,7 +123,7 @@ function determineRowType(strRow, langText) {
         rowType = rowEnum.CompileTime;
     } else if (strRow.indexOf(langText.rowsaffected) > -1) {
         rowType = rowEnum.RowsAffected;
-    } else if (strRow.substring(0,3) === langText.errormsg) {
+    } else if (strRow.substring(0, 3) === langText.errormsg) {
         rowType = rowEnum.Error;
     }
 
@@ -170,113 +170,69 @@ function processIOTableRow(line, tableResult, langText) {
     }
 }
 
-function parseOutput(txt, lang) {
-    //var txt = document.getElementById("statiotext").value;
-    var lines = txt.split('\n');
-    var tableIOResult = new Array();
-    var executionTotal = new statsTimeInfoTotal();
-    var compileTotal = new statsTimeInfoTotal();
-    var tableCount = 0;
-    var inTable = false;
-    var isExecution = false;
-    var isCompile = false;
-    var isError = false;
-    var formattedOutput = '';
-
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-
-        if (isExecution === false && isCompile === false && isError === false) {
-            var rowType = determineRowType(line, lang);
-        }
-
-        switch (rowType) {
-            case rowEnum.IO:
-                if (inTable === true) {
-                    processIOTableRow(line, tableIOResult, lang);
-                } else {
-                    tableCount += 1;
-                    inTable = true;
-                    processIOTableRow(line, tableIOResult, lang);
-                }
-                break;
-            case rowEnum.ExectuionTime:
-                if (isExecution === true) {
-                    var et = processTime(line, lang.cputime, lang.elapsedtime, lang.milliseconds);
-                    formattedOutput += outputTimeTable(et, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel)
-                    executionTotal.cpu += et.cpu;
-                    executionTotal.elapsed += et.elapsed
-                } else {
-                    //formattedOutput += '<span>' + line + '<br /></span>';
-                }
-                isExecution = !isExecution;
-                break;
-            case rowEnum.CompileTime:
-                if (isCompile === true) {
-                    var ct = processTime(line, lang.cputime, lang.elapsedtime, lang.milliseconds);
-                    formattedOutput += outputTimeTable(ct, lang.compiletime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel)
-                    compileTotal.cpu += ct.cpu;
-                    compileTotal.elapsed += ct.elapsed
-                } else {
-                    //formattedOutput += '<span>' + line + '<br /></span>';
-                }
-                isCompile = !isCompile;
-                break;
-            case rowEnum.RowsAffected:
-                var re = new RegExp("\\d+");
-                var affectedText = lang.headerrowsaffected;
-                var numRows;
-                if ((numRows = re.exec(line)) !== null) {
-                    if (numRows[0] === 1) { 
-                        affectedText = lang.headerrowaffected;
-                    }           
-                    formattedOutput += '<div class="strong-text">' + numeral(numRows[0]).format('0,0') + affectedText + '</div>';
-                }
-                break;
-            case rowEnum.Error:
-                isError = (isError === false ? true : false);
-                formattedOutput += '<div class="error-text">' + line + '</div>'
-                break;
-            default:
-                if (inTable === true) {
-                    inTable = false;
-                    formattedOutput += outputIOTable(tableIOResult, statsIOCalcTotals(tableIOResult), tableCount, lang);
-                    tableIOResult = new Array();
-                }
-                formattedOutput += '<span>' + line + '<br /></span>';
-        }
-
-    }
-
-    // if last row a table then call formatOutput
-    if (inTable == true) {
-        formattedOutput += outputIOTable(tableIOResult, statsIOCalcTotals(tableIOResult), tableCount, lang);
-    }
-
-    formattedOutput += '<h4>Totals:</h4>'
-    formattedOutput += outputTimeTableTotals(executionTotal, compileTotal, lang.compiletime, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel);
-
-    return {output: formattedOutput, tableCount: tableCount}
-}
-
 function parseText(lang) {
 
-    var formattedOutput = parseOutput( document.getElementById("statiotext").value, lang);
+    var parsedStats = parse(document.getElementById("statiotext").value, lang);
 
-    document.getElementById("result").innerHTML = formattedOutput.output;
-    document.getElementById("clearButton").innerHTML  = 'Clear Results';
+    document.getElementById("result").innerHTML = generateOutput(parsedStats, lang);
+    document.getElementById("clearButton").innerHTML = 'Clear Results';
 
-    //Apply datatables plugin
-    for (var counter = 1; counter <= formattedOutput.tableCount; counter++) {
-        if($.cookies.get("tableScrollbar") == true) {
-        $('#resultTable' + counter).dataTable({
+    makeDataTables(parsedStats.tableCount);
+}
+
+function makeDataTables(tableCount, comparison, comparisonCount) {
+
+    for (var counter = 1; counter <= tableCount; counter++) {
+        var tableIdSuffix = (comparison) ? counter + "comparison" + comparisonCount : counter;
+        if ($.cookies.get("tableScrollbar") == true) {
+            $('#resultTable' + tableIdSuffix).dataTable({
+                "sDom": "t",
+                "bFilter": false,
+                "bPaginate": false,
+                "sScrollY": "200px",
+                "bScrollCollapse": false,
+                "aoColumns": [
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    null,
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" }
+                ]
+            });
+        } else {
+            $('#resultTable' + tableIdSuffix).dataTable({
+                "sDom": "t",
+                "bFilter": false,
+                "bPaginate": false,
+                "aoColumns": [
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    null,
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" },
+                    { "sType": "formatted-num", "sClass": "td-column-right" }
+                ]
+            });
+        }
+    }
+    var tableIdSuffix = (comparison) ? "comparison" + comparisonCount : "";
+    if($.cookies.get("tableScrollbar") == true) {
+        $('#resultTableTotal' + tableIdSuffix).dataTable({
             "sDom": "t",
             "bFilter": false,
             "bPaginate": false,
             "sScrollY": "200px",
             "bScrollCollapse": false,
             "aoColumns": [
-                { "sType": "formatted-num", "sClass": "td-column-right" },
                 null,
                 { "sType": "formatted-num", "sClass": "td-column-right" },
                 { "sType": "formatted-num", "sClass": "td-column-right" },
@@ -288,13 +244,12 @@ function parseText(lang) {
                 { "sType": "formatted-num", "sClass": "td-column-right" }
             ]
         });
-        } else {
-        $('#resultTable' + counter).dataTable({
+    } else {
+        $('#resultTableTotal' + tableIdSuffix).dataTable({
             "sDom": "t",
             "bFilter": false,
             "bPaginate": false,
             "aoColumns": [
-                { "sType": "formatted-num", "sClass": "td-column-right" },
                 null,
                 { "sType": "formatted-num", "sClass": "td-column-right" },
                 { "sType": "formatted-num", "sClass": "td-column-right" },
@@ -306,34 +261,10 @@ function parseText(lang) {
                 { "sType": "formatted-num", "sClass": "td-column-right" }
             ]
         });            
-        }
     }
 }
 
-function statsIOCalcTotals(statInfos) {
-    var statTotal = new statsIOInfoTotal();
-
-    for (var i = 0; i < statInfos.length; i++) {
-        statTotal.scan += statInfos[i].scan;
-        statTotal.logical += statInfos[i].logical;
-        statTotal.physical += statInfos[i].physical;
-        statTotal.readahead += statInfos[i].readahead;
-        statTotal.loblogical += statInfos[i].loblogical;
-        statTotal.lobphysical += statInfos[i].lobphysical;
-        statTotal.lobreadahead += statInfos[i].lobreadahead;
-    }
-    calcPercent(statInfos, statTotal);
-    return statTotal;
-}
-
-function calcPercent(statInfos, statTotal) {
-    for (var i = 0; i < statInfos.length; i++) {
-        statInfos[i].percentread = ((statInfos[i].logical / statTotal.logical) * 100).toFixed(3);
-        //statInfos[i].percentread += statInfos[i].percentread.toString() + '%';
-    }
-}
-
-function formatms (milliseconds) {
+function formatms(milliseconds) {
     return moment.utc(milliseconds).format("HH:mm:ss.SSS")
 }
 
@@ -395,8 +326,9 @@ function outputTimeTableTotals(executionValues, compileValues, langCompileTitle,
     return result;
 }
 
- function outputIOTable(statInfo, statTotal, tableNumber, langObj) {
-    var result = '<table id="resultTable' + tableNumber +'" class="table table-striped table-hover table-condensed" style="table-layout:fixed">';
+function outputIOTable(statInfo, statTotal, tableNumber, langObj, comparison, comparisonCount) {
+    var tableIdSuffix = (comparison) ? tableNumber + "comparison" + comparisonCount : tableNumber;
+    var result = '<table id="resultTable' + tableIdSuffix + '" class="table table-striped table-hover table-condensed" style="table-layout:fixed">';
     result += '<thead><tr>';
     result += '<th class="th-column column-small">' + langObj.headerrownum + '</th>';
     result += '<th class="th-column">' + langObj.headertable + '</th>';
@@ -455,6 +387,67 @@ function outputTimeTableTotals(executionValues, compileValues, langCompileTitle,
     return result;
 }
 
+function outputIOTableTotal(statInfo, statTotal, tableNumber, langObj, comparison, comparisonCount) {
+    var tableIdSuffix = (comparison) ? "comparison" + comparisonCount : "";
+    var result = '<table id="resultTableTotal' + tableIdSuffix + '" class="table table-striped table-hover table-condensed" style="table-layout:fixed">';
+    result += '<thead><tr>';
+    //result += '<th class="th-column column-small">' + langObj.headerrownum + '</th>';
+    result += '<th class="th-column">' + langObj.headertable + '</th>';
+    result += '<th class="th-column column-large">' + langObj.headerscan + '</th>';
+    result += '<th class="th-column column-large">' + langObj.headerlogical + '</th>';
+    result += '<th class="th-column column-large">' + langObj.headerphysical + '</th>';
+    result += '<th class="th-column column-large">' + langObj.headerreadahead + '</th>';
+    result += '<th class="th-column column-medium">' + langObj.headerloblogical + '</th>';
+    result += '<th class="th-column column-medium">' + langObj.headerlobphysical + '</th>';
+    result += '<th class="th-column column-medium">' + langObj.headerlobreadahead + '</th>';
+    result += '<th class="th-column column-xlarge">' + langObj.headerperlogicalread + '</th>';
+    result += '</tr></thead>';
+    result += '<tbody>';
+    for (var i = 0; i < statInfo.length; i++) {
+        result += '<tr>';
+
+        //result += '<td>' + statInfo[i].rownumber + '</td>';
+        result += '<td>' + statInfo[i].table + '</td>';
+        if (statInfo[i].nostats) {
+            result += '<td></td>';
+            result += '<td></td>';
+            result += '<td></td>';
+            result += '<td></td>';
+            result += '<td></td>';
+            result += '<td></td>';
+            result += '<td></td>';
+            result += '<td></td>';
+        } else {
+            result += '<td>' + numeral(statInfo[i].scan).format('0,0') + '</td>';
+            result += '<td>' + numeral(statInfo[i].logical).format('0,0') + '</td>';
+            result += '<td>' + numeral(statInfo[i].physical).format('0,0') + '</td>';
+            result += '<td>' + numeral(statInfo[i].readahead).format('0,0') + '</td>';
+            result += '<td>' + numeral(statInfo[i].loblogical).format('0,0') + '</td>';
+            result += '<td>' + numeral(statInfo[i].lobphysical).format('0,0') + '</td>';
+            result += '<td>' + numeral(statInfo[i].lobreadahead).format('0,0') + '</td>';
+            result += '<td>' + statInfo[i].percentread + '</td>';
+        }
+        result += '</tr>';
+    }
+    result += '</tbody>';
+    result += '<tfoot><tr>';
+    //result += '<td class="footer-column column-small"></td>';
+    result += '<td class="footer-column">Total</td>';
+    result += '<td class="footer-column column-large">' + numeral(statTotal.scan).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large">' + numeral(statTotal.logical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large">' + numeral(statTotal.physical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large">' + numeral(statTotal.readahead).format('0,0') + '</td>';
+    result += '<td class="footer-column column-medium">' + numeral(statTotal.loblogical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-medium">' + numeral(statTotal.lobphysical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-medium">' + numeral(statTotal.lobreadahead).format('0,0') + '</td>';
+    result += '<td class="footer-column column-xlarge">&nbsp;</td>';
+    result += '</tr></tfoot>';
+
+    result += '</table>'
+
+    return result;
+}
+
 function getSubStr(str, delim) {
     var a = str.indexOf(delim);
 
@@ -473,8 +466,8 @@ function clearResult() {
     if (document.getElementById("result").innerHTML != '') {
         document.getElementById("result").innerHTML = '';
     } else {
-       document.getElementById("statiotext").value = '';
-       document.getElementById("exampleCheck").checked = false;
+        document.getElementById("statiotext").value = '';
+        document.getElementById("exampleCheck").checked = false;
     }
     document.getElementById("clearButton").innerHTML = 'Clear Text';
 }
@@ -483,3 +476,209 @@ function versionNumber() {
     document.getElementById("versionNumber").innerHTML = '0.4.4';
 }
 
+function parse(txt, lang) {
+    var lines = txt.split('\n');
+    var tableIOResult = new Array();
+    var executionTotal = new statsTimeInfoTotal();
+    var compileTotal = new statsTimeInfoTotal();
+    var totalIOResults = new Array();
+    var inTable = false;
+    var isExecution = false;
+    var isCompile = false;
+    var isError = false;
+    var results = new Array();
+    var currentResult = {};
+    var tableCount = 0;
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+
+        if (isExecution === false && isCompile === false && isError === false) {
+            var rowType = determineRowType(line, lang);
+        }
+        if (!inTable) {
+            currentResult.rowType = rowType;
+        }
+        switch (rowType) {
+            case rowEnum.IO:
+                if (inTable) {
+                    processIOTableRow(line, tableIOResult, lang);
+                } else {
+                    inTable = true;
+                    processIOTableRow(line, tableIOResult, lang);
+                }
+                break;
+            case rowEnum.ExectuionTime:
+                if (isExecution) {
+                    var et = processTime(line, lang.cputime, lang.elapsedtime, lang.milliseconds);
+                    currentResult.output = et;
+                    executionTotal.cpu += et.cpu;
+                    executionTotal.elapsed += et.elapsed
+                }
+                isExecution = !isExecution;
+                break;
+            case rowEnum.CompileTime:
+                if (isCompile) {
+                    var ct = processTime(line, lang.cputime, lang.elapsedtime, lang.milliseconds);
+                    currentResult.output = ct;
+                    compileTotal.cpu += ct.cpu;
+                    compileTotal.elapsed += ct.elapsed
+                }
+                isCompile = !isCompile;
+                break;
+            case rowEnum.RowsAffected:
+                var re = new RegExp("\\d+");
+                var affectedText = lang.headerrowsaffected;
+                var numRows;
+                if ((numRows = re.exec(line)) !== null) {
+                    if (numRows[0] === 1) {
+                        affectedText = lang.headerrowaffected;
+                    }
+                    currentResult.output = numeral(numRows[0]).format('0,0');
+                }
+                break;
+            case rowEnum.Error:
+                isError = (isError === false ? true : false);
+                currentResult.output = line;
+                break;
+            default:
+                if (inTable === true) {
+                    inTable = false;
+                    tableCount++;
+                    totalIOResults.push(tableIOResult);
+                    currentResult.output = tableIOResult;
+                    tableIOResult = new Array();
+                }
+        }
+        if (!inTable) {
+            results.push(currentResult);
+            currentResult = {};
+        }
+        removeEmtpyContent(results);
+    }
+    return {
+        results: results,
+        totalIOResults: generateFinalIOTable(totalIOResults),
+        tableCount: tableCount,
+        compileTotal: compileTotal,
+        executionTotal: executionTotal
+    };
+}
+
+function generateFinalIOTable(ioResults){
+    var i;
+    var finalResult = new Array();
+    var flattenedResults = new Array();
+    var tableIndex = {};
+    var currentResult;
+    var currentTableIndex = 0;
+    var rowNumber = 1;
+    
+    for (i = 0; i < ioResults.length; i++) {
+        Array.prototype.push.apply(flattenedResults, ioResults[i]);
+    }
+    
+    for (i = 0; i < flattenedResults.length; i++) {
+        currentResult = flattenedResults[i];
+        if (tableIndex[currentResult.table] !== undefined) {
+            addStatsIOCalcTotal(finalResult[tableIndex[currentResult.table]], currentResult);
+        } else {
+            currentResult.rownumber = rowNumber;
+            tableIndex[currentResult.table] = currentTableIndex;
+            finalResult[currentTableIndex] = currentResult;
+            currentTableIndex++;
+            rowNumber++;
+        }
+    }
+    return finalResult;
+}
+
+function statsIOCalcTotals(statInfos) {
+    var statTotal = new statsIOInfoTotal();
+
+    for (var i = 0; i < statInfos.length; i++) {
+        addStatsIOCalcTotal(statTotal, statInfos[i])
+    }
+    calcPercent(statInfos, statTotal);
+    return statTotal;
+}
+
+function addStatsIOCalcTotal(statTotal, statInfos) {
+    statTotal.scan += statInfos.scan;
+    statTotal.logical += statInfos.logical;
+    statTotal.physical += statInfos.physical;
+    statTotal.readahead += statInfos.readahead;
+    statTotal.loblogical += statInfos.loblogical;
+    statTotal.lobphysical += statInfos.lobphysical;
+    statTotal.lobreadahead += statInfos.lobreadahead;
+
+    return statTotal
+}
+
+function calcPercent(statInfos, statTotal) {
+    for (var i = 0; i < statInfos.length; i++) {
+        statInfos[i].percentread = ((statInfos[i].logical / statTotal.logical) * 100).toFixed(3);
+    }
+}
+
+function generateOutput(parseResult, lang, comparison, comparisonCount) {
+    var i;
+    var formattedOutput = '';
+    var currentResult;
+    var affectedText = "";
+    var tableCount = 1;
+    if (!comparison) {
+        comparison = false;
+    }
+
+    for (i = 0; i < parseResult.results.length; i++) {
+        currentResult = parseResult.results[i];
+        switch (currentResult.rowType) {
+            case rowEnum.IO:
+                formattedOutput += outputIOTable(currentResult.output, statsIOCalcTotals(currentResult.output), tableCount, lang, comparison, comparisonCount);
+                tableCount++;
+                break;
+            case rowEnum.ExectuionTime:
+                formattedOutput += outputTimeTable(currentResult.output, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel)
+                break;
+            case rowEnum.CompileTime:
+                formattedOutput += outputTimeTable(currentResult.output, lang.compiletime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel)
+                break;
+            case rowEnum.RowsAffected:
+                affectedText = (currentResult.output.length > 1 || currentResult.output != 1) ? lang.headerrowsaffected : lang.headerrowaffected;
+                formattedOutput += '<div class="strong-text">' + currentResult.output + affectedText + '</div>';
+                break;
+            case rowEnum.Error:
+                formattedOutput += '<div class="error-text">' + currentResult.output + '</div>'
+                break;
+            default:
+                break;
+        }
+    }
+
+    formattedOutput += '<h4>Totals:</h4>'
+    formattedOutput += outputIOTableTotal(parseResult.totalIOResults, statsIOCalcTotals(parseResult.totalIOResults), tableCount, lang, comparison, comparisonCount);
+    formattedOutput += outputTimeTableTotals(parseResult.executionTotal, parseResult.compileTotal, lang.compiletime, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel);
+
+    return formattedOutput;
+}
+
+function removeEmtpyContent(results) {
+    for (var i = results.length - 1; i >= 0; i--) {
+        if (results[i].output === undefined) {
+            results.pop();
+        }
+    }
+}
+
+function compare(langText) {
+    var statsFirst = $("#statiotext").val();
+    var statsSecond = $("#statiotextcompare").val();
+    var firstParse = parse(statsFirst, langText);
+    var secondParse = parse(statsSecond, langText);
+    document.getElementById("compareResultFirst").innerHTML = generateOutput(firstParse, langText, true, 1);
+    document.getElementById("compareResultSecond").innerHTML = generateOutput(secondParse, langText, true, 2);
+    document.getElementById("clearButton").innerHTML = 'Clear Results';
+    makeDataTables(firstParse.tableCount, true, 1);
+    makeDataTables(secondParse.tableCount, true, 2);
+}

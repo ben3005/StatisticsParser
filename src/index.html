@@ -74,7 +74,14 @@
                         Show Example Statistics IO Output
                     </label></div>
                 </div>
-                <textarea id="statiotext" rows="10"></textarea>
+                <div class="row">
+                    <div class="col-xs-6">
+                        <textarea id="statiotext" class="form-control" rows="10"></textarea>
+                    </div>
+                    <div class="col-xs-6">
+                        <textarea id="statiotextcompare" class="form-control" rows="10"></textarea>
+                    </div>
+                </div>
             <p></p>
             <div class="button-padding">
                 <div style="float: left">
@@ -93,6 +100,9 @@
                 <div style="float: right">
                     <button id="clearButton" type="button" onclick="clearResult();" class="btn btn-default">Clear Text</button>
                 </div>
+                <div style="float: right; margin-right: 10px;">
+                    <button id="parseButton" type="button" onclick="compare(langText);" class="btn btn-primary">Compare</button>
+                </div>
             </div>
         </form>
 
@@ -100,7 +110,10 @@
         <div id="resultTotal"></div>
         <div id="result"></div>
     </div>
-
+    <div style="overflow-x:auto;">
+        <div id="compareResultFirst" class="col-xs-6"></div>
+        <div id="compareResultSecond" class="col-xs-6"></div>
+    </div>
 
     <!-- /container -->
     <footer class="footer">
