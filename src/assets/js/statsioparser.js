@@ -463,10 +463,16 @@ function getSubStr(str, delim) {
 }
 
 function clearResult() {
-    if (document.getElementById("result").innerHTML != '') {
+    if (document.getElementById("result").innerHTML != '' 
+        || document.getElementById("compareResultFirst").innerHTML != ''
+        || document.getElementById("compareResultSecond").innerHTML != ''
+    ) {
         document.getElementById("result").innerHTML = '';
+        document.getElementById("compareResultFirst").innerHTML = '';
+        document.getElementById("compareResultSecond").innerHTML = '';
     } else {
         document.getElementById("statiotext").value = '';
+        document.getElementById("statiotextcompare").value = '';
         document.getElementById("exampleCheck").checked = false;
     }
     document.getElementById("clearButton").innerHTML = 'Clear Text';
@@ -623,7 +629,7 @@ function calcPercent(statInfos, statTotal) {
 
 function generateOutput(parseResult, lang, comparison, comparisonCount) {
     var i;
-    var formattedOutput = '';
+    var formattedOutput = new Array();
     var currentResult;
     var affectedText = "";
     var tableCount = 1;
@@ -635,32 +641,48 @@ function generateOutput(parseResult, lang, comparison, comparisonCount) {
         currentResult = parseResult.results[i];
         switch (currentResult.rowType) {
             case rowEnum.IO:
-                formattedOutput += outputIOTable(currentResult.output, statsIOCalcTotals(currentResult.output), tableCount, lang, comparison, comparisonCount);
+                formattedOutput.push(outputIOTable(currentResult.output, statsIOCalcTotals(currentResult.output), tableCount, lang, comparison, comparisonCount));
                 tableCount++;
                 break;
             case rowEnum.ExectuionTime:
-                formattedOutput += outputTimeTable(currentResult.output, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel)
+                formattedOutput.push(outputTimeTable(currentResult.output, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel));
                 break;
             case rowEnum.CompileTime:
-                formattedOutput += outputTimeTable(currentResult.output, lang.compiletime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel)
+                formattedOutput.push(outputTimeTable(currentResult.output, lang.compiletime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel));
                 break;
             case rowEnum.RowsAffected:
                 affectedText = (currentResult.output.length > 1 || currentResult.output != 1) ? lang.headerrowsaffected : lang.headerrowaffected;
-                formattedOutput += '<div class="strong-text">' + currentResult.output + affectedText + '</div>';
+                formattedOutput.push('<div class="strong-text">' + currentResult.output + affectedText + '</div>');
                 break;
             case rowEnum.Error:
-                formattedOutput += '<div class="error-text">' + currentResult.output + '</div>'
+                formattedOutput.push('<div class="error-text">' + currentResult.output + '</div>');
                 break;
             default:
                 break;
         }
     }
 
-    formattedOutput += '<h4>Totals:</h4>'
-    formattedOutput += outputIOTableTotal(parseResult.totalIOResults, statsIOCalcTotals(parseResult.totalIOResults), tableCount, lang, comparison, comparisonCount);
-    formattedOutput += outputTimeTableTotals(parseResult.executionTotal, parseResult.compileTotal, lang.compiletime, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel);
+    formattedOutput.push(outputFinalResults(parseResult, lang, comparison, comparisonCount));
+    return formattedOutput.join("");
+}
 
-    return formattedOutput;
+function outputFinalResults(parseResult, lang, comparison, comparisonCount) {
+    var formattedOutput = new Array();
+    var tableCount = 1;
+    for (i = 0; i < parseResult.results.length; i++) {
+        currentResult = parseResult.results[i];
+        switch (currentResult.rowType) {
+            case rowEnum.IO:
+                tableCount++;
+                break;
+            default:
+                break;
+        }
+    }
+    formattedOutput.push('<h4>Totals:</h4>');
+    formattedOutput.push(outputIOTableTotal(parseResult.totalIOResults, statsIOCalcTotals(parseResult.totalIOResults), tableCount, lang, comparison, comparisonCount));
+    formattedOutput.push(outputTimeTableTotals(parseResult.executionTotal, parseResult.compileTotal, lang.compiletime, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel));
+    return formattedOutput.join("");
 }
 
 function removeEmtpyContent(results) {
@@ -676,9 +698,9 @@ function compare(langText) {
     var statsSecond = $("#statiotextcompare").val();
     var firstParse = parse(statsFirst, langText);
     var secondParse = parse(statsSecond, langText);
-    document.getElementById("compareResultFirst").innerHTML = generateOutput(firstParse, langText, true, 1);
-    document.getElementById("compareResultSecond").innerHTML = generateOutput(secondParse, langText, true, 2);
-    document.getElementById("clearButton").innerHTML = 'Clear Results';
+    document.getElementById("compareResultFirst").innerHTML = outputFinalResults(firstParse, langText, true, 1);
+    document.getElementById("compareResultSecond").innerHTML = outputFinalResults(secondParse, langText, true, 2);
     makeDataTables(firstParse.tableCount, true, 1);
     makeDataTables(secondParse.tableCount, true, 2);
+    document.getElementById("clearButton").innerHTML = 'Clear Results';
 }
