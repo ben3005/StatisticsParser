@@ -289,10 +289,10 @@ function outputTimeTable(timeValues, langTitle, langDuration, elapsedLabel, cpuL
     return result;
 }
 
-function outputTimeTableTotals(executionValues, compileValues, langCompileTitle, langExecutionTitle, langDuration, elapsedLabel, cpuLabel) {
+function outputTimeTableTotals(executionValues, compileValues, langCompileTitle, langExecutionTitle, langDuration, elapsedLabel, cpuLabel, isComparison, comparison) {
     var cpuTotal = parseInt(executionValues.cpu) + parseInt(compileValues.cpu)
     var elapsedTotal = parseInt(executionValues.elapsed) + parseInt(compileValues.elapsed)
-
+    
     var result = '<div style="padding-top:10px"><table class="table table-striped table-hover table-condensed table-nonfluid">';
     result += '<thead><tr>';
     result += '<th class="th-column td-column-timetype"></th>';
@@ -319,8 +319,12 @@ function outputTimeTableTotals(executionValues, compileValues, langCompileTitle,
     result += '<td class="td-total td-column-timetype">Total</td>';
     //result += '<td class="td-total td-column-right">' + numeral(cpuTotal).format('0,0') + '</td>';
     //result += '<td class="td-total td-column-right">' + numeral(elapsedTotal).format('0,0') + '</td>';
-    result += '<td class="td-total td-column-right">' + formatms(cpuTotal) + '</td>';
-    result += '<td class="td-total td-column-right">' + formatms(elapsedTotal) + '</td>';
+    result += '<td class="td-total td-column-right ' + 
+        (isComparison ? classNameForComparison(cpuTotal, comparison.cpuTotal) : "") + '">' + 
+        formatms(cpuTotal) + '</td>';
+    result += '<td class="td-total td-column-right ' +
+        (isComparison ? classNameForComparison(elapsedTotal, comparison.elapsedTotal) : "") + '">' + 
+        formatms(elapsedTotal) + '</td>';
     result += '</tr></tfoot></table><div>';
 
     return result;
@@ -387,8 +391,8 @@ function outputIOTable(statInfo, statTotal, tableNumber, langObj, comparison, co
     return result;
 }
 
-function outputIOTableTotal(statInfo, statTotal, tableNumber, langObj, comparison, comparisonCount) {
-    var tableIdSuffix = (comparison) ? "comparison" + comparisonCount : "";
+function outputIOTableTotal(statInfo, statTotal, tableNumber, langObj, isComparison, comparisonNumber, comparison) {
+    var tableIdSuffix = (isComparison) ? "comparison" + comparisonNumber : "";
     var result = '<table id="resultTableTotal' + tableIdSuffix + '" class="table table-striped table-hover table-condensed" style="table-layout:fixed">';
     result += '<thead><tr>';
     //result += '<th class="th-column column-small">' + langObj.headerrownum + '</th>';
@@ -433,19 +437,53 @@ function outputIOTableTotal(statInfo, statTotal, tableNumber, langObj, compariso
     result += '<tfoot><tr>';
     //result += '<td class="footer-column column-small"></td>';
     result += '<td class="footer-column">Total</td>';
-    result += '<td class="footer-column column-large">' + numeral(statTotal.scan).format('0,0') + '</td>';
-    result += '<td class="footer-column column-large">' + numeral(statTotal.logical).format('0,0') + '</td>';
-    result += '<td class="footer-column column-large">' + numeral(statTotal.physical).format('0,0') + '</td>';
-    result += '<td class="footer-column column-large">' + numeral(statTotal.readahead).format('0,0') + '</td>';
-    result += '<td class="footer-column column-medium">' + numeral(statTotal.loblogical).format('0,0') + '</td>';
-    result += '<td class="footer-column column-medium">' + numeral(statTotal.lobphysical).format('0,0') + '</td>';
-    result += '<td class="footer-column column-medium">' + numeral(statTotal.lobreadahead).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large ' + 
+        (isComparison ? classNameForComparison(statTotal.scan, comparison.scan, false) : "") + '">' + 
+        numeral(statTotal.scan).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large ' + 
+        (isComparison ? classNameForComparison(statTotal.logical, comparison.logical, false) : "") + '">' + 
+        numeral(statTotal.logical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large ' + 
+        (isComparison ? classNameForComparison(statTotal.physical, comparison.physical, false) : "") + '">' + 
+        numeral(statTotal.physical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-large ' + 
+        (isComparison ? classNameForComparison(statTotal.readahead, comparison.readahead, false) : "") + '">' + 
+        numeral(statTotal.readahead).format('0,0') + '</td>';
+    result += '<td class="footer-column column-medium ' + 
+        (isComparison ? classNameForComparison(statTotal.loblogical, comparison.loblogical, false) : "") + '">' + 
+        numeral(statTotal.loblogical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-medium ' + 
+        (isComparison ? classNameForComparison(statTotal.lobphysical, comparison.lobphysical, false) : "") + '">' + 
+        numeral(statTotal.lobphysical).format('0,0') + '</td>';
+    result += '<td class="footer-column column-medium ' + 
+        (isComparison ? classNameForComparison(statTotal.lobreadahead, comparison.lobreadahead, false) : "") + '">' + 
+        numeral(statTotal.lobreadahead).format('0,0') + '</td>';
     result += '<td class="footer-column column-xlarge">&nbsp;</td>';
     result += '</tr></tfoot>';
 
     result += '</table>'
 
     return result;
+}
+
+function classNameForComparison(value, comparison, isHigherBetter) {
+    if (value > comparison) {
+        if (isHigherBetter) {
+            return "success";
+        } else {
+            return "danger";
+        }
+    }
+    if (value == comparison) {
+        return "info";
+    }
+    if (value < comparison) {
+        if (isHigherBetter) {
+            return "danger";
+        } else {
+            return "success";
+        }
+    }
 }
 
 function getSubStr(str, delim) {
@@ -666,9 +704,11 @@ function generateOutput(parseResult, lang, comparison, comparisonCount) {
     return formattedOutput.join("");
 }
 
-function outputFinalResults(parseResult, lang, comparison, comparisonCount) {
+function outputFinalResults(parseResult, lang, isComparison, comparisonNumber, comparison) {
     var formattedOutput = new Array();
     var tableCount = 1;
+    var currentResult;
+
     for (i = 0; i < parseResult.results.length; i++) {
         currentResult = parseResult.results[i];
         switch (currentResult.rowType) {
@@ -680,8 +720,58 @@ function outputFinalResults(parseResult, lang, comparison, comparisonCount) {
         }
     }
     formattedOutput.push('<h4>Totals:</h4>');
-    formattedOutput.push(outputIOTableTotal(parseResult.totalIOResults, statsIOCalcTotals(parseResult.totalIOResults), tableCount, lang, comparison, comparisonCount));
-    formattedOutput.push(outputTimeTableTotals(parseResult.executionTotal, parseResult.compileTotal, lang.compiletime, lang.executiontime, lang.milliseconds, lang.elapsedlabel, lang.cpulabel));
+    if (isComparison) {
+        formattedOutput.push(
+            outputIOTableTotal(
+                parseResult.totalIOResults, 
+                statsIOCalcTotals(parseResult.totalIOResults), 
+                tableCount, 
+                lang, 
+                isComparison, 
+                comparisonNumber, 
+                statsIOCalcTotals(comparison.totalIOResults)
+            )
+        );
+        formattedOutput.push(
+            outputTimeTableTotals(
+                parseResult.executionTotal,
+                parseResult.compileTotal,
+                lang.compiletime,
+                lang.executiontime,
+                lang.milliseconds,
+                lang.elapsedlabel,
+                lang.cpulabel,
+                true,
+                {
+                    cpuTotal: (parseInt(comparison.executionTotal.cpu) + parseInt(comparison.compileTotal.cpu)),
+                    elapsedTotal: (parseInt(comparison.executionTotal.elapsed) + parseInt(comparison.compileTotal.elapsed))
+                }
+            )
+        );
+    } else {
+        formattedOutput.push(
+            outputIOTableTotal(
+                parseResult.totalIOResults, 
+                statsIOCalcTotals(parseResult.totalIOResults), 
+                tableCount, 
+                lang, 
+                false
+            )
+        );
+        formattedOutput.push(
+            outputTimeTableTotals(
+                parseResult.executionTotal,
+                parseResult.compileTotal,
+                lang.compiletime,
+                lang.executiontime,
+                lang.milliseconds,
+                lang.elapsedlabel,
+                lang.cpulabel,
+                false
+            )
+        );
+    }
+        
     return formattedOutput.join("");
 }
 
@@ -698,8 +788,8 @@ function compare(langText) {
     var statsSecond = $("#statiotextcompare").val();
     var firstParse = parse(statsFirst, langText);
     var secondParse = parse(statsSecond, langText);
-    document.getElementById("compareResultFirst").innerHTML = outputFinalResults(firstParse, langText, true, 1);
-    document.getElementById("compareResultSecond").innerHTML = outputFinalResults(secondParse, langText, true, 2);
+    document.getElementById("compareResultFirst").innerHTML = outputFinalResults(firstParse, langText, true, 1, secondParse);
+    document.getElementById("compareResultSecond").innerHTML = outputFinalResults(secondParse, langText, true, 2, firstParse);
     makeDataTables(firstParse.tableCount, true, 1);
     makeDataTables(secondParse.tableCount, true, 2);
     document.getElementById("clearButton").innerHTML = 'Clear Results';
